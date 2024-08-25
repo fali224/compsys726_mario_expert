@@ -6,14 +6,21 @@ Your goal is to implement the functions and methods required to enable choose_ac
 Original Mario Manual: https://www.thegameisafootarcade.com/wp-content/uploads/2017/04/Super-Mario-Land-Game-Manual.pdf
 """
 
+from itertools import count
 import json
 import logging
 import random
+from telnetlib import theNULL
+from typing import Counter
+import numpy as np
+import time
 
 import cv2
 from mario_environment import MarioEnvironment
 from pyboy.utils import WindowEvent
 
+count_enemy = 0
+forward = 0
 
 class MarioController(MarioEnvironment):
     """
@@ -29,7 +36,7 @@ class MarioController(MarioEnvironment):
 
     def __init__(
         self,
-        act_freq: int = 10,
+        act_freq: int = 20,
         emulation_speed: int = 0,
         headless: bool = False,
     ) -> None:
@@ -105,10 +112,36 @@ class MarioExpert:
         state = self.environment.game_state()
         frame = self.environment.grab_frame()
         game_area = self.environment.game_area()
+        global count_enemy
+        count_enemy = 0
+        global forward
+        forward = 0
+
+        enemy_process = self.environment._read_m(0xFFFB)
+        mario_pos = self.environment._read_m(0xC202)
+
+        if mario_pos > 75:
+
+            if (enemy_process == count_enemy):
+                enemy_loc = 0xD100 + (count_enemy * 0x10) + 3 
+                enemy = self.environment._read_m(enemy_loc)
+                print(enemy)
+                count_enemy = count_enemy + 1
+
+                #print(enemy)
+                #print(enemy - mario_pos)
+                if (enemy - mario_pos <= 40):
+                    return (4)
+                elif(forward > 3):
+                    forward = 0
+                    return (4)
+                else:
+                    forward = forward + 1
 
         # Implement your code here to choose the best action
         # time.sleep(0.1)
-        return random.randint(0, len(self.environment.valid_actions) - 1)
+        return(2)
+        #return random.randint(0, len(self.environment.valid_actions) - 1)
 
     def step(self):
         """
