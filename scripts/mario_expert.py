@@ -70,7 +70,7 @@ class MarioController(MarioEnvironment):
         self.valid_actions = valid_actions
         self.release_button = release_button
 
-    def run_action(self, action: int) -> None:
+    def run_action(self, action: list) -> None:
         """
         This is a very basic example of how this function could be implemented
 
@@ -78,15 +78,23 @@ class MarioController(MarioEnvironment):
 
         You can change the action type to whatever you want or need just remember the base control of the game is pushing buttons
         """
+        if action[0] == 0:
+            self.pyboy.send_input(self.valid_actions[action[1]])
+            for _ in range(self.act_freq):
+                self.pyboy.tick()
+        elif action[0] == 1:
+            for _ in range(self.act_freq):
+                self.pyboy.send_input(self.valid_actions[5])
+                self.pyboy.send_input(self.valid_actions[action[1]])
+                self.pyboy.tick()
+        elif action[0] == 2:
+            for _ in range(self.act_freq):
+                self.pyboy.send_input(self.valid_actions[2])
+                self.pyboy.send_input(self.valid_actions[action[1]])
+                self.pyboy.tick()                   
 
         # Simply toggles the buttons being on or off for a duration of act_freq
-        self.pyboy.send_input(self.valid_actions[action])
-
-        for _ in range(self.act_freq):
-            self.pyboy.tick()
-
-        self.pyboy.send_input(self.release_button[action])
-
+        self.pyboy.send_input(self.release_button[action[1]])
 
 class MarioExpert:
     """
@@ -100,6 +108,17 @@ class MarioExpert:
         results_path (str): The path to save the results and video of the gameplay.
         headless (bool, optional): Whether to run the game in headless mode. Defaults to False.
     """
+    action_1 = [0,2]
+    stuck_count = 0
+    stuck_count_a = 0
+    lock_state = False
+    mario_tright = 0
+    mario_tleft = 0
+    mario_bright = 0
+    mario_bleft = 0
+    estuck = 0
+    is_bigJump = False
+    is_jumpStuck = False
 
     def __init__(self, results_path: str, headless=False):
         self.results_path = results_path
@@ -108,35 +127,208 @@ class MarioExpert:
 
         self.video = None
 
+    def next_step_ui(self):
+        input()
+        return
+
     def choose_action(self):
         state = self.environment.game_state()
         frame = self.environment.grab_frame()
         game_area = self.environment.game_area()
-        global count_enemy
-        count_enemy = 0
-        global forward
-        forward = 0
 
-        enemy_process = self.environment._read_m(0xFFFB)
-        mario_pos = self.environment._read_m(0xC202)
 
-        if mario_pos > 75:
 
-            if (enemy_process == count_enemy):
-                enemy_loc = 0xD100 + (count_enemy * 0x10) + 3 
-                enemy = self.environment._read_m(enemy_loc)
-                print(enemy)
-                count_enemy = count_enemy + 1
+        action_1 = self.action_1
 
-                #print(enemy)
-                #print(enemy - mario_pos)
-                if (enemy - mario_pos <= 40):
-                    return (4)
-                elif(forward > 3):
-                    forward = 0
-                    return (4)
-                else:
-                    forward = forward + 1
+        is_Gumba = False
+        is_mon = False
+        is_mon2 = False
+        mon_loc_col = 0
+        mon_loc_row = 0
+        mon2_loc_col = 0
+        mon2_loc_row = 0
+        gum_loc_col = 0
+        gum_loc_row = 0
+        is_Stuck = False
+
+
+        for i in range(len(game_area)):
+            for j in range(len(game_area[i])):
+                if game_area[i,j] == 15:
+                    is_Gumba = True
+                    gum_loc_col = j
+                    gum_loc_row = i
+                    break
+        for i in range(len(game_area)):
+            for j in range(len(game_area[i])):
+                if game_area[i,j] == 16:
+                    is_mon = True
+                    mon_loc_col = j
+                    mon_loc_row = i
+                    break  
+        for i in range(len(game_area)):
+            for j in range(len(game_area[i])):
+                if game_area[i,j] == 13:
+                    is_mon2 = True
+                    mon2_loc_col = j
+                    mon2_loc_row = i
+                    break
+
+        
+
+
+        body_count = 0
+        feet_loc_row = 100
+        feet_loc_col = 100
+        for i in range(len(game_area)):
+            for j in range(len(game_area[i])):
+                if game_area[i,j] == 1:
+                    body_count = body_count + 1
+                    if body_count == 4:
+                        feet_loc_row = i
+                        feet_loc_col = j
+                    elif body_count == 2:
+                        feet_loc_row = i
+                        feet_loc_col = j
+
+        print(feet_loc_col)
+        print(feet_loc_row)
+
+        if body_count == 4:
+            self.mario_bleft = [feet_loc_row, feet_loc_col - 1]
+            self.mario_bright = [feet_loc_row, feet_loc_col]
+            self.mario_tleft = [feet_loc_row - 1, feet_loc_col]
+            self.mario_tright = [feet_loc_row - 1, feet_loc_col - 1]
+
+        #if action_1 == [0,4] and missing logic
+        if game_area[14, 10] == 0 and game_area[15,10] == 10:
+            action_2 = [0,2]
+            self.action_1 = action_2
+            return action_2
+        
+        if self.estuck > 4:
+            action_2 = [0,1]
+            self.action_1 = action_2
+            self.estuck = 0
+            return action_2
+        
+        if self.lock_state == True:
+            action_2 = [1,4]
+            self.action_1 = action_2
+            self.is_bigJump = True
+            return action_2
+        #no jumpstuck logic
+        #no above head block
+        #missig logic
+        if self.stuck_count < 2 and self.stuck_count_a < 150:
+            if game_area[feet_loc_row, feet_loc_col+1] == 10:
+                action_2 = [0,4]
+                if self.action_1 == action_2:
+                    self.stuck_count = self.stuck_count + 1
+                self.action_1 = action_2
+                return action_2
+
+            elif (is_Gumba == True and gum_loc_col - feet_loc_col <= 1):
+                if not self.action_1 == [0,4]:
+                    action_2 = [0,1]
+                    self.action_1 = action_2
+                    return action_2
+                action_2 = [0,4]
+                if self.action_1 == action_2:
+                    self.stuck_count = self.stuck_count + 1
+                self.action_1 = action_2
+                self.stuck_count = 0
+                return action_2
+    #missing logic
+            elif (is_mon == True and mon_loc_col - feet_loc_col <= 30):
+                action_2 = [0,4]
+                if self.action_1 == action_2:
+                    self.stuck_count = self.stuck_count + 1
+                self.action_1 = action_2
+                self.stuck_count = 0
+                return action_2
+
+            elif (is_mon2 == True and mon2_loc_col - feet_loc_col <= 30):
+                action_2 = [0,4]
+                if self.action_1 == action_2:
+                    self.stuck_count = self.stuck_count + 1
+                self.action_1 = action_2
+                self.stuck_count = 0 
+                return action_2
+
+            elif game_area[14,10] == 0:
+                if game_area[14,12] == 0:
+                    action_2 = [1,4]
+                    self.action_1 = action_2
+                    return action_2
+                action_2 = [0,4]
+                if self.action_1 == action_2:
+                    self.stuck_count = self.stuck_count + 1
+                self.action_1 = action_2
+                self.stuck_count = 0
+                return action_2
+            
+            else:
+                action_2 = [0,2]
+                if self.action_1 == action_2:
+                    self.stuck_count_a = self.stuck_count_a + 1
+                self.action_1 = action_2
+                self.stuck_count = 0
+                return action_2
+            
+        elif self.stuck_count_a == 150:
+            action_2 = [0,4]
+            self.action_1 = action_2
+            self.stuck_count_a = 0
+            return action_2
+        
+        else:
+            action_2 = [0,1]
+            self.action_1 = action_2
+            self.stuck_count = 0
+            self.stuck_count_a = 0
+            return action_2
+        
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+        # global count_enemy
+        # count_enemy = 0
+        # global forward
+        # forward = 0
+
+        # enemy_process = self.environment._read_m(0xFFFB)
+        # mario_pos = self.environment._read_m(0xC202)
+
+        # if mario_pos > 75:
+        #     print(game_area)
+        #     if (enemy_process == count_enemy):
+        #         enemy_loc = 0xD100 + (count_enemy * 0x10) + 3 
+        #         enemy = self.environment._read_m(enemy_loc)
+        #         count_enemy = count_enemy + 1
+
+        #         #print(enemy)
+        #         #print(enemy - mario_pos)
+        #         if (enemy - mario_pos <= 40):
+        #             return (4)
+        #         elif(forward > 3):
+        #             forward = 0
+        #             return (4)
+        #         else:
+        #             forward = forward + 1
 
         # Implement your code here to choose the best action
         # time.sleep(0.1)
