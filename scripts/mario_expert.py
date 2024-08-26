@@ -101,15 +101,36 @@ class MarioController(MarioEnvironment):
             self.pyboy.send_input(self.release_button[2])
         # Minor Jump
         elif action[0] == 3:
+            #Dash Start
+            self.pyboy.send_input(self.valid_actions[5])
+            #go right
+            self.pyboy.send_input(self.valid_actions[2])
+            # Jump
+            self.pyboy.send_input(self.valid_actions[4])
+            for _ in range(50):
+                self.pyboy.tick()
+            
+            self.pyboy.send_input(self.release_button[4])
+            # End dash
+            self.pyboy.send_input(self.release_button[2])
+            self.pyboy.send_input(self.release_button[5])
+        elif action[0] == 4:
+            #Dash Start
+            # Jump
             self.pyboy.send_input(self.valid_actions[2])
             self.pyboy.tick()
             self.pyboy.send_input(self.release_button[2])
-            self.pyboy.send_input(self.valid_actions[5])
+
             self.pyboy.send_input(self.valid_actions[4])
-            for _ in range(3):
+            self.pyboy.send_input(self.valid_actions[5])
+            #go right
+            for _ in range(100):
                 self.pyboy.tick()
-            self.pyboy.send_input(self.release_button[5])
+            
             self.pyboy.send_input(self.release_button[4])
+            # End dash
+            
+            self.pyboy.send_input(self.release_button[5])
         # Simply toggles the buttons being on or off for a duration of act_freq
         #
 
@@ -136,6 +157,8 @@ class MarioExpert:
     estuck = 0
     is_bigJump = False
     is_jumpStuck = False
+    previous_test_pixel = 0
+    test_pixel_count = 0
     
 
     def __init__(self, results_path: str, headless=False):
@@ -171,19 +194,35 @@ class MarioExpert:
                         feet_loc_col = j
                     elif body_count == 2:
                         feet_loc_row = i
-                        feet_loc_col = j   
-        if feet_loc_row > 16 or feet_loc_row < 0:
-            return [1]
+                        feet_loc_col = j  
+
+        if self.previous_test_pixel == game_area[10,14]:
+            self.test_pixel_count += 1
+
+            if self.test_pixel_count == 100:
+                print("DHIWHAIDUH")
+                self.test_pixel_count = 0
+                action_2 = [4]
+                return action_2
+
+        if self.previous_test_pixel != game_area[10,14]:
+            self.test_pixel_count = 0
+            print("RESET")
+            self.previous_test_pixel = game_area[10,14]
+        
+        if feet_loc_row >= 16 or feet_loc_row < 0:
+            return [0,4]
         # Detect inline with legs
         isJumping = True
         if game_area[feet_loc_row + 1 ,feet_loc_col] == 10 or game_area[feet_loc_row + 1 ,feet_loc_col] == 14 or game_area[feet_loc_row + 1 ,feet_loc_col] == 12 or game_area[feet_loc_row + 1 ,feet_loc_col] == 14 or game_area[feet_loc_row + 1 ,feet_loc_col] == 13:
             isJumping = False
         if isJumping:
             return [1]
-
+        
         priority = []
         for i in range(0,10):
-            obstacle_row = 0
+            if feet_loc_col + i >= 16:
+                break
             for j in range(len(game_area)):
                 if game_area[j,feet_loc_col + i] == 15:  
                     if j < feet_loc_row - 1:
@@ -224,8 +263,14 @@ class MarioExpert:
                 if game_area[j,feet_loc_col + i] == 0:
                     if j == feet_loc_row + 1:
                         if i < 2:
+                            if game_area[j,feet_loc_col + i - 1] == 10:
+                                if game_area[j,feet_loc_col + i + 3] == 10 and game_area[j,feet_loc_col + i + 2] == 0:
+                                    priority.append("BIG HOLE")
                             priority.append("HOLE")
-                            
+
+        
+
+                         
         if "GOOMBA DIRECTLY INFRONT" in priority or "TURTLE DIRECTLY INFRONT" in priority or "SMASH ABOVE" in priority:
             action_2 = [1]
             return action_2
@@ -237,6 +282,10 @@ class MarioExpert:
             return action_2
         elif "OBSTACLE GOOD DISTANCE" in priority:
             action_2 = [1]
+            return action_2
+        elif "BIG HOLE" in priority:
+            print("BIG HOLE")
+            action_2 = [3]
             return action_2
         elif "HOLE" in priority:
             action_2 = [1]
