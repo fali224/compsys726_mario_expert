@@ -80,26 +80,38 @@ class MarioController(MarioEnvironment):
         """
         if action[0] == 0:
             self.pyboy.send_input(self.valid_actions[action[1]])
-            for _ in range(self.act_freq):
+            for _ in range(5):
                 self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[action[1]])
         elif action[0] == 1:
-            for _ in range(self.act_freq):
-                self.pyboy.send_input(self.valid_actions[5])
-                self.pyboy.send_input(self.valid_actions[action[1]])
+            #JUMP
+            self.pyboy.send_input(self.valid_actions[2])
+            self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[2])
+            self.pyboy.send_input(self.valid_actions[5])
+            self.pyboy.send_input(self.valid_actions[4])
+            for _ in range(10):
                 self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[5])
+            self.pyboy.send_input(self.release_button[4])
+        # MOVE SLIGHTLY LEFT WHEN BUGGED
         elif action[0] == 2:
-            for _ in range(self.act_freq):
-                self.pyboy.send_input(self.valid_actions[0])
-                self.pyboy.send_input(self.valid_actions[action[1]])
-                self.pyboy.tick()          
-                self.pyboy.send_input(self.release_button[0]) 
+            self.pyboy.send_input(self.valid_actions[2])
+            self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[2])
+        # Minor Jump
         elif action[0] == 3:
-            self.pyboy.send_input(self.valid_actions[0])
-            self.pyboy.send_input(action[1])
-            for _ in range(self.act_freq):
+            self.pyboy.send_input(self.valid_actions[2])
+            self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[2])
+            self.pyboy.send_input(self.valid_actions[5])
+            self.pyboy.send_input(self.valid_actions[4])
+            for _ in range(3):
                 self.pyboy.tick()
+            self.pyboy.send_input(self.release_button[5])
+            self.pyboy.send_input(self.release_button[4])
         # Simply toggles the buttons being on or off for a duration of act_freq
-        self.pyboy.send_input(self.release_button[action[1]])
+        #
 
 class MarioExpert:
     """
@@ -142,7 +154,7 @@ class MarioExpert:
         frame = self.environment.grab_frame()
         game_area = self.environment.game_area()
 
-        #print(game_area)
+        print(game_area)
 
         count = 0
         body_count = 0
@@ -160,51 +172,142 @@ class MarioExpert:
                     elif body_count == 2:
                         feet_loc_row = i
                         feet_loc_col = j   
-
+        if feet_loc_row > 16 or feet_loc_row < 0:
+            return [1]
         # Detect inline with legs
-        for i in range(5,0,-1):
-            distance_to_jump = 4
-            action_1 = [0,4]
+        isJumping = True
+        if game_area[feet_loc_row + 1 ,feet_loc_col] == 10 or game_area[feet_loc_row + 1 ,feet_loc_col] == 14 or game_area[feet_loc_row + 1 ,feet_loc_col] == 12 or game_area[feet_loc_row + 1 ,feet_loc_col] == 14 or game_area[feet_loc_row + 1 ,feet_loc_col] == 13:
+            isJumping = False
+        if isJumping:
+            return [1]
 
-            if game_area[feet_loc_row,feet_loc_col + i] != 0:
-                j = -1
-                if game_area[feet_loc_row,feet_loc_col + i] == 16:
-                    distance_to_jump = 5
-                    action_1 = [0,4]
-                # find where wall ends and if enemy above
-                if(game_area[feet_loc_row,feet_loc_col + i] == 10 or game_area[feet_loc_row,feet_loc_col + i] == 14):
-                    count = 1
-                    while game_area[feet_loc_row + j,feet_loc_col +i] == game_area[feet_loc_row,feet_loc_col + i]:
-                        j -= 1
-                    # if enemy above then walk backwards
-                    if(game_area[feet_loc_row+ j,feet_loc_col + i] != 0):
-                        action_2 = [1,1]
-                        return action_2
+        priority = []
+        for i in range(0,10):
+            obstacle_row = 0
+            for j in range(len(game_area)):
+                if game_area[j,feet_loc_col + i] == 15:  
+                    if j < feet_loc_row - 1:
+                        if i < 7:
+                            priority.append("GOOMBA ABOVE")
+
+                    if j == feet_loc_row or j == feet_loc_row - 1:
+                        if i < 5:
+                            priority.append("GOOMBA DIRECTLY INFRONT")
+                            
+                    
+                    if j > feet_loc_row:
+                        if i < 1:
+                            priority.append("GOOMBA BELOW")
+                            
+                if game_area[j,feet_loc_col + i] == 16:  
+                    if j == feet_loc_row or j == feet_loc_row - 1:
+                        if i < 5:
+                            priority.append("TURTLE DIRECTLY INFRONT")
                 
-                if count == 1:
-                    distance_to_jump == 0
+                if game_area[j,feet_loc_col + i] == 18:  
+                    if j < feet_loc_row - 1:
+                        if i < 7:
+                            priority.append("SMASH ABOVE")
+                    
+                    if j == feet_loc_row or j == feet_loc_row - 1:
+                        if i < 5:
+                            priority.append("SMASH DIRECTLY INFRONT")
+                
+                if game_area[j,feet_loc_col + i] == 10 or game_area[j,feet_loc_col + i] == 14:
+                    if j <= feet_loc_row:
+                        if i < 2:
+                            priority.append("OBSTACLE TOO CLOSE")
+                        if i < 4:
+                            priority.append("OBSTACLE GOOD DISTANCE")
+                            
+                
+                if game_area[j,feet_loc_col + i] == 0:
+                    if j == feet_loc_row + 1:
+                        if i < 2:
+                            priority.append("HOLE")
+                            
+        if "GOOMBA DIRECTLY INFRONT" in priority or "TURTLE DIRECTLY INFRONT" in priority or "SMASH ABOVE" in priority:
+            action_2 = [1]
+            return action_2
+        elif "GOOMBA ABOVE" in priority or "GOOMBA BELOW" in priority or "SMASH DIRECTLY INFRONT" in priority :
+            action_2 = [0,1]
+            return action_2
+        elif "OBSTACLE TOO CLOSE" in priority:
+            action_2 = [0,1]
+            return action_2
+        elif "OBSTACLE GOOD DISTANCE" in priority:
+            action_2 = [1]
+            return action_2
+        elif "HOLE" in priority:
+            action_2 = [1]
+            return action_2
+                # #Inline with player
+                # if j == feet_loc_row or j == feet_loc_row - 1:
+                #     if game_area[i,feet_loc_col + i] != 0:
+                #         print("OBSTACLE")
+                #         action_2 = [1]
+                #         return action_2
+                
+                # # Below player
+                # if j > feet_loc_row:
+                #     if game_area[j,feet_loc_col+i] == 15:
+                #         print("SOMETHING IN THE WAY")
+                #         action_2 = [0,1]
+                #         return action_2
+                #     if game_area[j,feet_loc_col+i] == 0:
+                #         print("HOLE")
+                #         action_2 = [1]
+                #         return action_2
+                
+                # #Above Player
+                # if j < feet_loc_row -1:
+                #     if game_area[i,feet_loc_col + i] != 0 and game_area[i,feet_loc_col + i] != 10 and game_area[i,feet_loc_col + i] != 14:
+                #         print("SOMETHING IN THE WAY")
+                #         action_2 = [0,1]
+                #         return action_2
 
-                if i <= distance_to_jump:
-                    action_2 = action_1
-                    self.action_1 = action_2
-                    return action_2
+            # distance_to_jump = 4
+            # action_1 = [0,4]
+
+            # if game_area[i,feet_loc_col + i] != 0:
+            #     j = -1
+            #     if game_area[i,feet_loc_col + i] == 16:
+            #         distance_to_jump = 5
+            #         action_1 = [0,4]
+            #     # find where wall ends and if enemy above
+            #     if(game_area[feet_loc_row,feet_loc_col + i] == 10 or game_area[feet_loc_row,feet_loc_col + i] == 14):
+            #         count = 1
+            #         while game_area[feet_loc_row + j,feet_loc_col +i] == game_area[feet_loc_row,feet_loc_col + i]:
+            #             j -= 1
+            #         # if enemy above then walk backwards
+            #         if(game_area[feet_loc_row+ j,feet_loc_col + i] != 0):
+            #             action_2 = [1,1]
+            #             return action_2
+                
+            #     if count == 1:
+            #         distance_to_jump == 0
+
+            #     if i <= distance_to_jump:
+            #         action_2 = action_1
+            #         self.action_1 = action_2
+            #         return action_2
 
              
-        for i in range(1,10):
+        # for i in range(1,10):
             
-            if game_area[feet_loc_row-3,feet_loc_col + i] == 18:
-                action_2 = [1,1]
-                return action_2
+        #     if game_area[feet_loc_row-3,feet_loc_col + i] == 18:
+        #         action_2 = [1,1]
+        #         return action_2
 
 
-        # Detect 1 below         
-        for i in range(2,5):
-            if game_area[feet_loc_row+1,feet_loc_col + i] != 10 and game_area[feet_loc_row+1,feet_loc_col+i] != 14:
-                if game_area[feet_loc_row+1,feet_loc_col] == 10 or game_area[feet_loc_row+1,feet_loc_col+i] == 14:
-                    print("JUMP")
-                    action_2 = [0,4]
-                    self.action_1 = action_2
-                    return action_2
+        # # Detect 1 below         
+        # for i in range(2,5):
+        #     if game_area[feet_loc_row+1,feet_loc_col + i] != 10 and game_area[feet_loc_row+1,feet_loc_col+i] != 14:
+        #         if game_area[feet_loc_row+1,feet_loc_col] == 10 or game_area[feet_loc_row+1,feet_loc_col+i] == 14:
+        #             print("JUMP")
+        #             action_2 = [0,4]
+        #             self.action_1 = action_2
+        #             return action_2
 
         
         action_2 = [0,2]
